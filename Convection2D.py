@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
 
-def linearadvection2D(nx,ny,nt):
+def linearconvection2D(nx,ny,nt):
     # nx,ny = no of grid points, nt = no of time steps
     lx = 2 #domain dimensions
     ly = 2
@@ -22,7 +22,7 @@ def linearadvection2D(nx,ny,nt):
 
     un = np.ones((ny,nx)) #temp array
 
-    for n in range(nt): #solving in time
+    for n in range(nt+1): #solving in time
         un = u.copy()
         u[1:,1:] = un[1:,1:]-c*dt/dx*(un[1:,1:]-un[1:,:-1])-c*dt/dy*(un[1:,1:]-un[:-1,1:])
         u[0,:] = 1
@@ -42,7 +42,7 @@ def linearadvection2D(nx,ny,nt):
     fig.colorbar(surf, shrink=0.5, aspect=8)  #Color bar
     plt.show()
 
-def nonlinearadvection2D(nx,ny,nt):
+def nonlinearconvection2D(nx,ny,nt):
     # nx,ny = no of grid points, nt = no of time steps
     lx = 2 #domain dimensions
     ly = 2
@@ -60,7 +60,7 @@ def nonlinearadvection2D(nx,ny,nt):
 
     un = np.ones((ny,nx)) #temp array
 
-    for n in range(nt): #solving in time
+    for n in range(nt+1): #solving in time
         un = u.copy()
         u[1:,1:] = un[1:,1:]-un[1:,1:]*dt/dx*(un[1:,1:]-un[1:,:-1])-un[1:,1:]*dt/dy*(un[1:,1:]-un[:-1,1:])
         u[0,:] = 1
@@ -80,5 +80,5 @@ def nonlinearadvection2D(nx,ny,nt):
     fig.colorbar(surf, shrink=0.5, aspect=8)  #Color bar
     plt.show()
 
-linearadvection2D(81,81,100)
-nonlinearadvection2D(81,81,100)
+linearconvection2D(81,81,100)
+nonlinearconvection2D(81,81,100)

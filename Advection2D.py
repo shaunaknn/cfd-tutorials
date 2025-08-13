@@ -22,17 +22,7 @@ def linearadvection2D(nx,ny,nt):
 
     un = np.ones((ny,nx)) #temp array
 
-    #initial condition plot
-    #fig = plt.figure(figsize=(11,7),dpi=100)
-    #ax = fig.add_subplot(111, projection='3d')
-    #surf = ax.plot_surface(X,Y,u,cmap=cm.viridis)
-    #ax.set_xlabel('X')
-    #ax.set_ylabel('Y')
-    #ax.set_zlabel('Z')
-    #ax.set_title('Initial condition')
-    #plt.show()
-
-    for n in range(nt): # solving in time
+    for n in range(nt): #solving in time
         un = u.copy()
         u[1:,1:] = un[1:,1:]-c*dt/dx*(un[1:,1:]-un[1:,:-1])-c*dt/dy*(un[1:,1:]-un[:-1,1:])
         u[0,:] = 1
@@ -49,7 +39,7 @@ def linearadvection2D(nx,ny,nt):
     ax.set_zlabel('Z')
     ax.set_title('Final state')
 
-    fig.colorbar(surf, shrink=0.5, aspect=5)  # Color bar
+    fig.colorbar(surf, shrink=0.5, aspect=5)  #Color bar
     plt.show()
 
 def nonlinearadvection(nx,nt):

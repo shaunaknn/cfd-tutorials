@@ -16,8 +16,7 @@ def diffusion(nx,nt):
 
     for n in range(nt): #solving in time
         un = u.copy()
-        for i in range(1,nx-1): #marching in space
-            u[i] = un[i]+nu*dt/dx**2*(un[i+1]-2*un[i]+un[i-1])
+        u[1:-1] = un[1:-1]+nu*dt/dx**2*(un[2:]-2*un[1:-1]+un[:-2])
 
     plt.plot(np.linspace(0,l,nx),u) #plot after nt
     plt.show()

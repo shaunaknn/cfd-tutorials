@@ -2,15 +2,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-def plot_2dfield(X,Y,field,field2,title):
+def plot2d(x,y,field,field2,title):
     fig = plt.figure(figsize=(11,7),dpi=100)
     ax = fig.add_subplot(111,projection='3d')
-    ax.plot_surface(X,Y,field,cmap=cm.viridis)
-    ax.plot_surface(X,Y,field2,cmap=cm.viridis)
+    
+    X,Y = np.meshgrid(x,y)
+    ax.plot_surface(X,Y,field,cmap=cm.viridis,rstride=1,cstride=1,linewidth=0,antialiased=True)
+    ax.plot_surface(X,Y,field2,cmap=cm.viridis,rstride=1,cstride=1,linewidth=0,antialiased=True)
 
     ax.set_xlabel('$x$')
     ax.set_ylabel('$y$')
     ax.set_title(title)
+
     plt.show()
 
 def burgers2d(nt):
@@ -31,11 +34,8 @@ def burgers2d(nt):
         u[0,:], u[-1,:], u[:,0], u[:,-1] = 1, 1, 1, 1
         v[0,:], v[-1,:], v[:,0], v[:,-1] = 1, 1, 1, 1
 
-    plot_2dfield(X,Y,u,v,'Solution at final time step')
-
-#nx, ny = no of grid points, nt = no of time steps
 lx, ly = 2, 2 #domain dimensions
-nx, ny = 41, 41
+nx, ny = 41, 41 #no of grid points
 nt = 120 #number of timesteps
 dx = lx/(nx-1) #delta x
 dy = ly/(ny-1) #delta y
@@ -46,15 +46,15 @@ dt = sigma*dx*dy/nu #delta t
 
 x = np.linspace(0,lx,nx)
 y = np.linspace(0,ly,ny)
-X,Y = np.meshgrid(x,y)
 
 u = np.ones((ny,nx)) #solution arrays
 v = np.ones((ny,nx))
 un = np.ones_like(u) #temp arrays
 vn = np.ones_like(u)
-comb = np.ones((ny,nx))
 
 u[int(.5/dy):int(1/dy+1),int(.5/dx):int(1/dx+1)] = 2 #initial condition
 v[int(.5/dy):int(1/dy+1),int(.5/dx):int(1/dx+1)] = 2 #initial condition
 
+plot2d(x,y,u,v,'initial state')
 burgers2d(nt)
+plot2d(x,y,u,v,'final state')

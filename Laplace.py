@@ -25,7 +25,7 @@ def laplace2d(p,y,dx,dy,l1norm_target):
 
     while l1norm>l1norm_target:
         pn = p.copy()
-        p[1:-1,1:-1] = (dy**2*(p[1:-1,2:]+p[1:-1,:-2]) + dx**2*(p[2:,1:-1]+p[:-2,1:-1]))\
+        p[1:-1,1:-1] = (dy**2*(pn[1:-1,2:]+pn[1:-1,:-2]) + dx**2*(pn[2:,1:-1]+pn[:-2,1:-1]))\
             /(2*(dx**2+dy**2))
         
         p[:,0], p[:,-1] = 0, y #boundary conditions

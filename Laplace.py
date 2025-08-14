@@ -19,7 +19,7 @@ def plot2d(x,y,field,title):
     
     plt.show()
 
-def laplace2d(p,y,l1norm_target):
+def laplace2d(p,y,dx,dy,l1norm_target):
     l1norm = 1
     pn = np.empty_like(p)
 
@@ -51,5 +51,5 @@ p[0,:] = p[1,:]
 p[-1,:] = p[-2,:]
 
 plot2d(x,y,p,'initial value')
-laplace2d(p,y,1e-4)
+p = laplace2d(p,y,dx,dy,1e-4)
 plot2d(x,y,p,'final value')

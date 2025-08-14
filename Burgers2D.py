@@ -16,7 +16,7 @@ def plot2d(x,y,field,field2,title):
 
     plt.show()
 
-def burgers2d(nt):
+def burgers2d(u,v,nt,dx,dy,dt,nu):
     for n in range(nt+1):
         un = u.copy()
         vn = v.copy()
@@ -31,8 +31,10 @@ def burgers2d(nt):
                 + nu*dt/dx**2*(vn[1:-1,2:]-2*vn[1:-1,1:-1]+vn[1:-1,:-2])\
                     + nu*dt/dy**2*(vn[2:,1:-1]-2*vn[1:-1,1:-1]+vn[:-2,1:-1])
 
-        u[0,:], u[-1,:], u[:,0], u[:,-1] = 1, 1, 1, 1
+        u[0,:], u[-1,:], u[:,0], u[:,-1] = 1, 1, 1, 1 #boundary conditions
         v[0,:], v[-1,:], v[:,0], v[:,-1] = 1, 1, 1, 1
+
+    return u, v
 
 lx, ly = 2, 2 #domain dimensions
 nx, ny = 41, 41 #no of grid points
@@ -49,12 +51,10 @@ y = np.linspace(0,ly,ny)
 
 u = np.ones((ny,nx)) #solution arrays
 v = np.ones((ny,nx))
-un = np.ones_like(u) #temp arrays
-vn = np.ones_like(u)
 
 u[int(.5/dy):int(1/dy+1),int(.5/dx):int(1/dx+1)] = 2 #initial condition
-v[int(.5/dy):int(1/dy+1),int(.5/dx):int(1/dx+1)] = 2 #initial condition
+v[int(.5/dy):int(1/dy+1),int(.5/dx):int(1/dx+1)] = 2
 
 plot2d(x,y,u,v,'initial state')
-burgers2d(nt)
+u,v = burgers2d(u,v,nt,dx,dy,dt,nu)
 plot2d(x,y,u,v,'final state')

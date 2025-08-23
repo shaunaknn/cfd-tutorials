@@ -32,7 +32,7 @@ def laplace2d(p,y,dx,dy,l1norm_target):
         p[0,:] = p[1,:]
         p[-1,:] = p[-2,:]
 
-        l1norm = (np.sum(np.abs(p) - np.abs(pn)))/np.sum(np.abs(pn))
+        l1norm = (np.sum(np.abs(p - pn)))/np.sum(np.abs(pn))
 
     return p
 

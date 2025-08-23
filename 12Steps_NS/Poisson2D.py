@@ -32,6 +32,8 @@ p = np.zeros((ny,nx)) #solution array
 b = np.zeros_like(p) #source term
 b[int(ny/4),int(nx/4)], b[int(3*ny/4),int(3*nx/4)] = 100, -100
 
+plot2d(x,y,b,'initial state of p') #initial solution
+
 for i in range(nt):
     pn = p.copy()
     p[1:-1,1:-1] = (dy**2*(pn[1:-1,2:]+pn[1:-1,:-2]) + dx**2*(pn[2:,1:-1]+pn[:-2,1:-1])\
@@ -39,4 +41,4 @@ for i in range(nt):
         
     p[:,0], p[:,-1], p[0,:], p[-1,:] = 0, 0, 0, 0 #boundary conditions
 
-plot2d(x,y,p,'final state of p')
+plot2d(x,y,p,'final state of p') #final solution

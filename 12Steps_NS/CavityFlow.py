@@ -3,14 +3,14 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 lx, ly = 1, 1 #domain size
-nx, ny = 41, 41 #no of domain points
+nx, ny = 21, 21 #no of domain points
 nt = 10000 #real timesteps count
 nit = 50 #pseudo timestep count
 dx = lx/(nx-1) #deltax
 dy = ly/(ny-1) #deltay
 x = np.linspace(0,lx,nx) #x-domain array
 y = np.linspace(0,ly,ny) #y-domain array
-c = 1 #lid velocity
+c = 4 #lid velocity
 
 rho = 1 #density
 nu = 0.01 #kinematic viscosity
@@ -127,7 +127,6 @@ def update_u_upwind(u, un, vn, p, dx, dy, dt, rho, nu):
                               + dt/dy**2 * (un[2:,1:-1] - 2*un[1:-1,1:-1] + un[:-2,1:-1]))
     return u
 
-
 def update_v_upwind(v, un, vn, p, dx, dy, dt, rho, nu):
     fe1, fe2 = compute_F(un)
     fw1, fw2 = fe1, fe2
@@ -148,26 +147,24 @@ def update_v_upwind(v, un, vn, p, dx, dy, dt, rho, nu):
                               + dt/dy**2 * (vn[2:,1:-1] - 2*vn[1:-1,1:-1] + vn[:-2,1:-1]))
     return v
 
-def update_velocity_upwind(phi, un, vn, p, dx, dy, dt, rho, nu, is_u=True):
+def update_uv_upwind(phi, un, vn, p, dx, dy, dt, rho, nu, is_u=True):
     #Updates a velocity component phi using upwind scheme for convective terms.
     #is_u: Flag to switch between updating u and v.
-    #field = placeholder 
 
-    field = phi.copy()
     # Compute positive/negative flux coefficients
     ew1, ew2 = compute_F(un)
     ns1, ns2 = compute_F(vn)
 
+    # Depending on phi = u or v, directional coefficients would be set
     if is_u:
         field = un
     else:
         field = vn
         
-    # East and West fluxes (x-direction)
+    # East, West, North and South Fluxes
     fe = field[1:-1, 1:-1]*ew1[1:-1,1:-1] + field[1:-1, 2:]*ew2[1:-1,1:-1]
     fw = field[1:-1, 0:-2]*ew1[1:-1,1:-1] + field[1:-1, 1:-1]*ew2[1:-1,1:-1]
 
-    # North and South fluxes (y-direction)
     fn = field[1:-1, 1:-1]*ns1[1:-1,1:-1] + field[2:, 1:-1]*ns2[1:-1,1:-1]
     fs = field[0:-2, 1:-1]*ns1[1:-1,1:-1] + field[1:-1, 1:-1]*ns2[1:-1,1:-1]
 
@@ -220,8 +217,8 @@ def cavity(u,v,p,nt,dx,dy,dt,rho,nu): #solve cavity flow
         #u = update_u_upwind(u,un,vn,p,dx,dy,dt,rho,nu)
         #v = update_v_upwind(v,un,vn,p,dx,dy,dt,rho,nu)
 
-        u = update_velocity_upwind(u, un, vn, p, dx, dy, dt, rho, nu, is_u=True)
-        v = update_velocity_upwind(v, un, vn, p, dx, dy, dt, rho, nu, is_u=False)
+        u = update_uv_upwind(u, un, vn, p, dx, dy, dt, rho, nu, is_u=True)
+        v = update_uv_upwind(v, un, vn, p, dx, dy, dt, rho, nu, is_u=False)
 
         u,v = applyBC(u,v,c)
 

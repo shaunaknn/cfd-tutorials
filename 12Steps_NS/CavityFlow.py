@@ -2,9 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-lx, ly = 2, 2 #domain size
+lx, ly = 1, 1 #domain size
 nx, ny = 41, 41 #no of domain points
-nt = 700 #real timesteps count
+nt = 10000 #real timesteps count
 nit = 50 #pseudo timestep count
 dx = lx/(nx-1) #deltax
 dy = ly/(ny-1) #deltay
@@ -13,7 +13,7 @@ y = np.linspace(0,ly,ny) #y-domain array
 c = 1 #lid velocity
 
 rho = 1 #density
-nu = 0.1 #kinematic viscosity
+nu = 0.01 #kinematic viscosity
 dt = 0.001 #timestep size
 Re = c*max(lx,ly)/nu #Reynolds number
 l1norm_target = 1e-4
@@ -99,6 +99,97 @@ def update_v(v,un,vn,p,dx,dy,dt,rho,nu): #update v velocity
                               + dt/dy**2 * (vn[2:,1:-1] - 2*vn[1:-1,1:-1] + vn[:-2,1:-1]))
     return v
 
+# upwind scheme implemented to handle large negative velocities
+def compute_F(c):
+    denom = np.abs(c) + 1e-6
+    pos_part = np.maximum(c/denom,0)
+    neg_part = np.maximum(-c/denom,0)
+    return pos_part,neg_part
+
+
+def update_u_upwind(u, un, vn, p, dx, dy, dt, rho, nu):
+    fe1, fe2 = compute_F(un)
+    fw1, fw2 = fe1, fe2
+
+    ue = un[1:-1, 1:-1] * fe1[1:-1, 1:-1] + un[1:-1, 2:] * fe2[1:-1, 1:-1]
+    uw = un[1:-1, 0:-2] * fw1[1:-1, 1:-1] + un[1:-1, 1:-1]* fw2[1:-1, 1:-1]
+
+    fn1, fn2 = compute_F(vn)
+    fs1, fs2 = fn1, fn2
+
+    unorth = un[1:-1, 1:-1] * fn1[1:-1, 1:-1] + un[2:, 1:-1] * fn2[1:-1, 1:-1]
+    us = un[0:-2, 1:-1] * fs1[1:-1, 1:-1] + un[1:-1, 1:-1] * fs2[1:-1, 1:-1]
+
+    u[1:-1,1:-1] = un[1:-1,1:-1] - un[1:-1,1:-1]* dt/dx *(ue-uw)\
+                        -vn[1:-1,1:-1]* dt/dy *(unorth-us)\
+                        -dt/(2*rho*dx) * (p[1:-1,2:]-p[1:-1,:-2])\
+                        + nu*(dt/dx**2 * (un[1:-1,2:] - 2*un[1:-1,1:-1] + un[1:-1,:-2])\
+                              + dt/dy**2 * (un[2:,1:-1] - 2*un[1:-1,1:-1] + un[:-2,1:-1]))
+    return u
+
+
+def update_v_upwind(v, un, vn, p, dx, dy, dt, rho, nu):
+    fe1, fe2 = compute_F(un)
+    fw1, fw2 = fe1, fe2
+
+    ve = vn[1:-1, 1:-1] * fe1[1:-1, 1:-1] + vn[1:-1, 2:] * fe2[1:-1, 1:-1]
+    vw = vn[1:-1, 0:-2] * fw1[1:-1, 1:-1] + vn[1:-1, 1:-1]* fw2[1:-1, 1:-1]
+
+    fn1, fn2 = compute_F(vn)
+    fs1, fs2 = fn1, fn2
+
+    vnorth = un[1:-1, 1:-1] * fn1[1:-1, 1:-1] + un[2:, 1:-1] * fn2[1:-1, 1:-1]
+    vs = un[0:-2, 1:-1] * fs1[1:-1, 1:-1] + un[1:-1, 1:-1] * fs2[1:-1, 1:-1]
+
+    v[1:-1,1:-1] = vn[1:-1,1:-1] - un[1:-1,1:-1]* dt/dx *(ve-vw)\
+                        -vn[1:-1,1:-1]* dt/dy *(vnorth-vs)\
+                        -dt/(2*rho*dy) * (p[2:,1:-1]-p[:-2,1:-1])\
+                        + nu*(dt/dx**2 * (vn[1:-1,2:] - 2*vn[1:-1,1:-1] + vn[1:-1,:-2])\
+                              + dt/dy**2 * (vn[2:,1:-1] - 2*vn[1:-1,1:-1] + vn[:-2,1:-1]))
+    return v
+
+def update_velocity_upwind(phi, un, vn, p, dx, dy, dt, rho, nu, is_u=True):
+    #Updates a velocity component phi using upwind scheme for convective terms.
+    #is_u: Flag to switch between updating u and v.
+    #field = placeholder 
+
+    field = phi.copy()
+    # Compute positive/negative flux coefficients
+    ew1, ew2 = compute_F(un)
+    ns1, ns2 = compute_F(vn)
+
+    if is_u:
+        field = un
+    else:
+        field = vn
+        
+    # East and West fluxes (x-direction)
+    fe = field[1:-1, 1:-1]*ew1[1:-1,1:-1] + field[1:-1, 2:]*ew2[1:-1,1:-1]
+    fw = field[1:-1, 0:-2]*ew1[1:-1,1:-1] + field[1:-1, 1:-1]*ew2[1:-1,1:-1]
+
+    # North and South fluxes (y-direction)
+    fn = field[1:-1, 1:-1]*ns1[1:-1,1:-1] + field[2:, 1:-1]*ns2[1:-1,1:-1]
+    fs = field[0:-2, 1:-1]*ns1[1:-1,1:-1] + field[1:-1, 1:-1]*ns2[1:-1,1:-1]
+
+    # Convective terms in x and y direction
+    conv_x = un[1:-1,1:-1] * dt/dx * (fe - fw)
+    conv_y = vn[1:-1,1:-1] * dt/dy * (fn - fs)
+
+    # Pressure gradient term
+    if is_u:
+        grad_p = dt/(2*rho*dx) * (p[1:-1,2:] - p[1:-1,:-2])
+    else:
+        grad_p = dt/(2*rho*dy) * (p[2:,1:-1] - p[:-2,1:-1])
+
+    # Diffusion term
+    diff = nu * (dt/dx**2 * (field[1:-1,2:] - 2*field[1:-1,1:-1] + field[1:-1,:-2])
+                 + dt/dy**2 * (field[2:,1:-1] - 2*field[1:-1,1:-1] + field[:-2,1:-1]))
+
+    # Update
+    phi[1:-1,1:-1] = field[1:-1,1:-1] - conv_x - conv_y - grad_p + diff
+
+    return phi
+
 def applyBC(u,v,c): #apply boundary conditions
     u[0,:] = 0 #bottom wall
     u[:,0] = 0 #left wall
@@ -121,15 +212,22 @@ def cavity(u,v,p,nt,dx,dy,dt,rho,nu): #solve cavity flow
         
         b = buildb(b,u,v,dx,dy,dt,rho) #build RHS of pressure-poisson eqn
         #p = ppoisson(p,dx,dy,b)
-        p,itercount = ppoissonl1(p,dx,dy,b,l1norm_target)
+        p, _ = ppoissonl1(p,dx,dy,b,l1norm_target)
 
-        u = update_u(u,un,vn,p,dx,dy,dt,rho,nu)
-        v = update_v(v,un,vn,p,dx,dy,dt,rho,nu)
+        #u = update_u(u,un,vn,p,dx,dy,dt,rho,nu)
+        #v = update_v(v,un,vn,p,dx,dy,dt,rho,nu)
+
+        #u = update_u_upwind(u,un,vn,p,dx,dy,dt,rho,nu)
+        #v = update_v_upwind(v,un,vn,p,dx,dy,dt,rho,nu)
+
+        u = update_velocity_upwind(u, un, vn, p, dx, dy, dt, rho, nu, is_u=True)
+        v = update_velocity_upwind(v, un, vn, p, dx, dy, dt, rho, nu, is_u=False)
 
         u,v = applyBC(u,v,c)
 
     return u, v, p
 
 u,v,p = cavity(u,v,p,nt,dx,dy,dt,rho,nu)
+print(f"The reynolds number is {Re}")
 plotfield(x,y,p,u,v,'Final time step velocity vectors','quiver')
 plotfield(x,y,p,u,v,'Streamlines at final time step','stream')

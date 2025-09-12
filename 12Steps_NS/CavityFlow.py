@@ -115,12 +115,12 @@ def update_uv_upwind(phi, un, vn, p, dx, dy, dt, rho, nu, is_u=True):
     ew1, ew2 = compute_F(un)  # East-West coefficients based on un
     ns1, ns2 = compute_F(vn)  # North-South coefficients based on vn
 
-    field = un.copy() if is_u else vn.copy()
+    field = un.copy() if is_u else vn.copy() # set operating field based on flag
 
+    # Compute coefficients of surrounding fluxes
     fe = field[1:-1, 1:-1]*ew1[1:-1,1:-1] + field[1:-1, 2:]*ew2[1:-1,1:-1]
     fw = field[1:-1, 0:-2]*ew1[1:-1,1:-1] + field[1:-1, 1:-1]*ew2[1:-1,1:-1]
-        
-    # North-South fluxes: transport un with vn-based coefficients  
+
     fn = field[1:-1, 1:-1]*ns1[1:-1,1:-1] + field[2:, 1:-1]*ns2[1:-1,1:-1]
     fs = field[0:-2, 1:-1]*ns1[1:-1,1:-1] + field[1:-1, 1:-1]*ns2[1:-1,1:-1]
     

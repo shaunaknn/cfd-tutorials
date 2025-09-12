@@ -106,47 +106,6 @@ def compute_F(c):
     neg_part = np.maximum(-c/denom,0)
     return pos_part,neg_part
 
-
-def update_u_upwind(u, un, vn, p, dx, dy, dt, rho, nu):
-    fe1, fe2 = compute_F(un)
-    fw1, fw2 = fe1, fe2
-
-    ue = un[1:-1, 1:-1] * fe1[1:-1, 1:-1] + un[1:-1, 2:] * fe2[1:-1, 1:-1]
-    uw = un[1:-1, 0:-2] * fw1[1:-1, 1:-1] + un[1:-1, 1:-1]* fw2[1:-1, 1:-1]
-
-    fn1, fn2 = compute_F(vn)
-    fs1, fs2 = fn1, fn2
-
-    unorth = un[1:-1, 1:-1] * fn1[1:-1, 1:-1] + un[2:, 1:-1] * fn2[1:-1, 1:-1]
-    us = un[0:-2, 1:-1] * fs1[1:-1, 1:-1] + un[1:-1, 1:-1] * fs2[1:-1, 1:-1]
-
-    u[1:-1,1:-1] = un[1:-1,1:-1] - un[1:-1,1:-1]* dt/dx *(ue-uw)\
-                        -vn[1:-1,1:-1]* dt/dy *(unorth-us)\
-                        -dt/(2*rho*dx) * (p[1:-1,2:]-p[1:-1,:-2])\
-                        + nu*(dt/dx**2 * (un[1:-1,2:] - 2*un[1:-1,1:-1] + un[1:-1,:-2])\
-                              + dt/dy**2 * (un[2:,1:-1] - 2*un[1:-1,1:-1] + un[:-2,1:-1]))
-    return u
-
-def update_v_upwind(v, un, vn, p, dx, dy, dt, rho, nu):
-    fe1, fe2 = compute_F(un)
-    fw1, fw2 = fe1, fe2
-
-    ve = vn[1:-1, 1:-1] * fe1[1:-1, 1:-1] + vn[1:-1, 2:] * fe2[1:-1, 1:-1]
-    vw = vn[1:-1, 0:-2] * fw1[1:-1, 1:-1] + vn[1:-1, 1:-1]* fw2[1:-1, 1:-1]
-
-    fn1, fn2 = compute_F(vn)
-    fs1, fs2 = fn1, fn2
-
-    vnorth = vn[1:-1, 1:-1] * fn1[1:-1, 1:-1] + vn[2:, 1:-1] * fn2[1:-1, 1:-1]
-    vs = vn[0:-2, 1:-1] * fs1[1:-1, 1:-1] + vn[1:-1, 1:-1] * fs2[1:-1, 1:-1]
-
-    v[1:-1,1:-1] = vn[1:-1,1:-1] - un[1:-1,1:-1]* dt/dx *(ve-vw)\
-                        -vn[1:-1,1:-1]* dt/dy *(vnorth-vs)\
-                        -dt/(2*rho*dy) * (p[2:,1:-1]-p[:-2,1:-1])\
-                        + nu*(dt/dx**2 * (vn[1:-1,2:] - 2*vn[1:-1,1:-1] + vn[1:-1,:-2])\
-                              + dt/dy**2 * (vn[2:,1:-1] - 2*vn[1:-1,1:-1] + vn[:-2,1:-1]))
-    return v
-
 def update_uv_upwind(phi, un, vn, p, dx, dy, dt, rho, nu, is_u=True):
     """Updates a velocity component phi using upwind scheme for convective terms.
     is_u: Flag to switch between updating u and v.
@@ -181,46 +140,6 @@ def update_uv_upwind(phi, un, vn, p, dx, dy, dt, rho, nu, is_u=True):
 
     phi[1:-1,1:-1] = field[1:-1,1:-1] - conv_x - conv_y - grad_p + diff
     
-    #if is_u:
-        # For u-component: transport un values
-        # East-West fluxes: transport un with un-based coefficients
-        #fe = un[1:-1, 1:-1]*ew1[1:-1,1:-1] + un[1:-1, 2:]*ew2[1:-1,1:-1]
-        #fw = un[1:-1, 0:-2]*ew1[1:-1,1:-1] + un[1:-1, 1:-1]*ew2[1:-1,1:-1]
-        
-        # North-South fluxes: transport un with vn-based coefficients  
-        #fn = un[1:-1, 1:-1]*ns1[1:-1,1:-1] + un[2:, 1:-1]*ns2[1:-1,1:-1]
-        #fs = un[0:-2, 1:-1]*ns1[1:-1,1:-1] + un[1:-1, 1:-1]*ns2[1:-1,1:-1]
-        
-        # Pressure gradient in x-direction
-        #grad_p = dt/(2*rho*dx) * (p[1:-1,2:] - p[1:-1,:-2])
-        
-        # Diffusion term for u
-        #diff = nu * (dt/dx**2 * (un[1:-1,2:] - 2*un[1:-1,1:-1] + un[1:-1,:-2])\
-        #             + dt/dy**2 * (un[2:,1:-1] - 2*un[1:-1,1:-1] + un[:-2,1:-1]))
-    #else:
-        # For v-component: transport vn values
-        # East-West fluxes: transport vn with un-based coefficients
-        #fe = vn[1:-1, 1:-1]*ew1[1:-1,1:-1] + vn[1:-1, 2:]*ew2[1:-1,1:-1]
-        #fw = vn[1:-1, 0:-2]*ew1[1:-1,1:-1] + vn[1:-1, 1:-1]*ew2[1:-1,1:-1]
-        
-        # North-South fluxes: transport vn with vn-based coefficients
-        #fn = vn[1:-1, 1:-1]*ns1[1:-1,1:-1] + vn[2:, 1:-1]*ns2[1:-1,1:-1]
-        #fs = vn[0:-2, 1:-1]*ns1[1:-1,1:-1] + vn[1:-1, 1:-1]*ns2[1:-1,1:-1]
-        
-        # Pressure gradient in y-direction
-        #grad_p = dt/(2*rho*dy) * (p[2:,1:-1] - p[:-2,1:-1])
-        
-        # Diffusion term for v
-        #diff = nu * (dt/dx**2 * (vn[1:-1,2:] - 2*vn[1:-1,1:-1] + vn[1:-1,:-2])\
-        #             + dt/dy**2 * (vn[2:,1:-1] - 2*vn[1:-1,1:-1] + vn[:-2,1:-1]))
-
-    # Convective terms
-    #conv_x = un[1:-1,1:-1] * dt/dx * (fe - fw)
-    #conv_y = vn[1:-1,1:-1] * dt/dy * (fn - fs)
-
-    # Update equation
-    #phi[1:-1,1:-1] = (un[1:-1,1:-1] if is_u else vn[1:-1,1:-1]) - conv_x - conv_y - grad_p + diff
-
     return phi
 
 def applyBC(u,v,c): #apply boundary conditions
@@ -249,9 +168,6 @@ def cavity(u,v,p,nt,dx,dy,dt,rho,nu): #solve cavity flow
 
         #u = update_u(u,un,vn,p,dx,dy,dt,rho,nu)
         #v = update_v(v,un,vn,p,dx,dy,dt,rho,nu)
-
-        #u = update_u_upwind(u,un,vn,p,dx,dy,dt,rho,nu)
-        #v = update_v_upwind(v,un,vn,p,dx,dy,dt,rho,nu)
 
         u = update_uv_upwind(u, un, vn, p, dx, dy, dt, rho, nu, is_u=True)
         v = update_uv_upwind(v, un, vn, p, dx, dy, dt, rho, nu, is_u=False)

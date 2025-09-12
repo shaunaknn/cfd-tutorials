@@ -137,8 +137,8 @@ def update_v_upwind(v, un, vn, p, dx, dy, dt, rho, nu):
     fn1, fn2 = compute_F(vn)
     fs1, fs2 = fn1, fn2
 
-    vnorth = un[1:-1, 1:-1] * fn1[1:-1, 1:-1] + un[2:, 1:-1] * fn2[1:-1, 1:-1]
-    vs = un[0:-2, 1:-1] * fs1[1:-1, 1:-1] + un[1:-1, 1:-1] * fs2[1:-1, 1:-1]
+    vnorth = vn[1:-1, 1:-1] * fn1[1:-1, 1:-1] + vn[2:, 1:-1] * fn2[1:-1, 1:-1]
+    vs = vn[0:-2, 1:-1] * fs1[1:-1, 1:-1] + vn[1:-1, 1:-1] * fs2[1:-1, 1:-1]
 
     v[1:-1,1:-1] = vn[1:-1,1:-1] - un[1:-1,1:-1]* dt/dx *(ve-vw)\
                         -vn[1:-1,1:-1]* dt/dy *(vnorth-vs)\
@@ -225,10 +225,10 @@ def cavity(u,v,p,nt,dx,dy,dt,rho,nu): #solve cavity flow
         #u = update_u(u,un,vn,p,dx,dy,dt,rho,nu)
         #v = update_v(v,un,vn,p,dx,dy,dt,rho,nu)
 
-        #u = update_u_upwind(u,un,vn,p,dx,dy,dt,rho,nu)
-        #v = update_v_upwind(v,un,vn,p,dx,dy,dt,rho,nu)
+        u = update_u_upwind(u,un,vn,p,dx,dy,dt,rho,nu)
+        v = update_v_upwind(v,un,vn,p,dx,dy,dt,rho,nu)
 
-        u,v = update_uv_upwind(u, un, vn, p, dx, dy, dt, rho, nu, is_u=True), update_uv_upwind(v, un, vn, p, dx, dy, dt, rho, nu, is_u=False)
+        #u = update_uv_upwind(u, un, vn, p, dx, dy, dt, rho, nu, is_u=True)
         #v = update_uv_upwind(v, un, vn, p, dx, dy, dt, rho, nu, is_u=False)
 
         u,v = applyBC(u,v,c)

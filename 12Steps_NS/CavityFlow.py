@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 lx, ly = 1, 1 #domain size
-nx, ny = 21, 21 #no of domain points
+nx, ny = 41, 41 #no of domain points
 nt = 10000 #real timesteps count
 nit = 50 #pseudo timestep count
 dx = lx/(nx-1) #deltax
@@ -14,7 +14,7 @@ c = 4 #lid velocity
 
 rho = 1 #density
 nu = 0.01 #kinematic viscosity
-dt = 0.001 #timestep size
+dt = 0.001 #timestep size; max time step = 0.5 * dx**2 / nu
 Re = c*max(lx,ly)/nu #Reynolds number
 l1norm_target = 1e-4
 
@@ -83,6 +83,7 @@ def ppoissonl1(p,dx,dy,b,l1norm_target): #l1 norm target version
 
     return p, itercount
 
+# Velocity updates
 def update_u(u,un,vn,p,dx,dy,dt,rho,nu): #update u velocity
     u[1:-1,1:-1] = un[1:-1,1:-1] - un[1:-1,1:-1]* dt/dx *(un[1:-1,1:-1]-un[1:-1,:-2])\
                         -vn[1:-1,1:-1]* dt/dy *(un[1:-1,1:-1]-un[:-2,1:-1])\
@@ -142,6 +143,26 @@ def update_uv_upwind(phi, un, vn, p, dx, dy, dt, rho, nu, is_u=True):
     
     return phi
 
+# Chorin's projection velocity updates
+def update_u_star(u,un,vn,dx,dy,dt,nu): #update u velocity
+    u[1:-1,1:-1] = un[1:-1,1:-1] - un[1:-1,1:-1]* dt/(2*dx) *(un[1:-1,2:]-un[1:-1,:-2])\
+                        -vn[1:-1,1:-1]* dt/(2*dy) *(un[2:,1:-1]-un[:-2,1:-1])\
+                        + nu*(dt/dx**2 * (un[1:-1,2:] - 2*un[1:-1,1:-1] + un[1:-1,:-2])\
+                              + dt/dy**2 * (un[2:,1:-1] - 2*un[1:-1,1:-1] + un[:-2,1:-1]))
+    return u
+
+def update_v_star(v,un,vn,dx,dy,dt,nu): #update u velocity
+    v[1:-1,1:-1] = vn[1:-1,1:-1] - un[1:-1,1:-1]* dt/(2*dx) *(vn[1:-1,2:]-vn[1:-1,:-2])\
+                        -vn[1:-1,1:-1]* dt/(2*dy) *(vn[2:,1:-1]-vn[:-2,1:-1])\
+                        + nu*(dt/dx**2 * (vn[1:-1,2:] - 2*vn[1:-1,1:-1] + vn[1:-1,:-2])\
+                              + dt/dy**2 * (vn[2:,1:-1] - 2*vn[1:-1,1:-1] + vn[:-2,1:-1]))
+    return v
+
+# Chorin's pressure poisson RHS term
+def buildb_chorin(b,u,v,dx,dy,dt,rho): #separate source term of p poisson equation
+    b[1:-1,1:-1] = rho*(1/dt*((u[1:-1,2:]-u[1:-1,:-2])/(2*dx) + (v[2:,1:-1]-v[:-2,1:-1])/(2*dy)))
+    return b
+
 def applyBC(u,v,c): #apply boundary conditions
     u[0,:] = 0 #bottom wall
     u[:,0] = 0 #left wall
@@ -176,7 +197,35 @@ def cavity(u,v,p,nt,dx,dy,dt,rho,nu): #solve cavity flow
 
     return u, v, p
 
-u,v,p = cavity(u,v,p,nt,dx,dy,dt,rho,nu)
+def cavity_chorin(u,v,p,nt,dx,dy,dt,rho,nu): #solve cavity flow
+    un = np.empty_like(u)
+    vn = np.empty_like(v)
+    b = np.zeros((ny,nx))
+
+    for n in range(nt):
+        un[:] = u #similar to un = u.copy()
+        vn[:] = v
+
+        u = update_u_star(u,un,vn,dx,dy,dt,nu) # chorin's intermediate velocities
+        v = update_v_star(v,un,vn,dx,dy,dt,nu)
+
+        b = buildb_chorin(b,u,v,dx,dy,dt,rho) #build RHS of pressure-poisson eqn
+        p, _ = ppoissonl1(p,dx,dy,b,l1norm_target)
+
+        # velocity corrections with pressure
+        u[1:-1,1:-1] = u[1:-1,1:-1] - dt/rho * (p[1:-1,2:]-p[1:-1,:-2])/(2*dx)
+        v[1:-1,1:-1] = v[1:-1,1:-1] - dt/rho * (p[2:,1:-1]-p[:-2,1:-1])/(2*dy)
+
+        u,v = applyBC(u,v,c)
+
+    return u, v, p
+
+#u,v,p = cavity(u,v,p,nt,dx,dy,dt,rho,nu)
+#print(f"The reynolds number is {Re}")
+#plotfield(x,y,p,u,v,'Final time step velocity vectors','quiver')
+#plotfield(x,y,p,u,v,'Streamlines at final time step','stream')
+
+u,v,p = cavity_chorin(u,v,p,nt,dx,dy,dt,rho,nu)
 print(f"The reynolds number is {Re}")
 plotfield(x,y,p,u,v,'Final time step velocity vectors','quiver')
 plotfield(x,y,p,u,v,'Streamlines at final time step','stream')

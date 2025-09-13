@@ -112,8 +112,8 @@ def channel(u,v,p,dx,dy,dt,rho,nu,epsilon):
         vn[:] = v
         
         b = buildb(u,v,dx,dy,dt,rho)
-        #p = ppoissonperiodic(p,dx,dy,b)
-        p, _ = ppoissonperiodicl1(p,dx,dy,b,l1norm_target)
+        p = ppoissonperiodic(p,dx,dy,b)
+        #p, _ = ppoissonperiodicl1(p,dx,dy,b,l1norm_target)
 
         u[1:-1,1:-1] = un[1:-1,1:-1] - un[1:-1,1:-1]* dt/dx *(un[1:-1,1:-1]-un[1:-1,:-2])\
                         -vn[1:-1,1:-1]* dt/dy *(un[1:-1,1:-1]-un[:-2,1:-1])\
@@ -166,6 +166,109 @@ def channel(u,v,p,dx,dy,dt,rho,nu,epsilon):
 
     return u, v, p, stepcount
 
-u,v,p,steps = channel(u,v,p,dx,dy,dt,rho,nu,epsilon)
+#Chroin's projection method for Channel flow
+def update_u_star(u,un,vn,dx,dy,dt,nu,F):
+    # interior
+    u[1:-1,1:-1] = un[1:-1,1:-1] \
+        - un[1:-1,1:-1] * dt/(2*dx) * (un[1:-1,2:] - un[1:-1,:-2]) \
+        - vn[1:-1,1:-1] * dt/(2*dy) * (un[2:,1:-1] - un[:-2,1:-1]) \
+        + nu * (dt/dx**2 * (un[1:-1,2:] - 2*un[1:-1,1:-1] + un[1:-1,:-2]) \
+               + dt/dy**2 * (un[2:,1:-1] - 2*un[1:-1,1:-1] + un[:-2,1:-1])) \
+        + dt*F
+    
+    # periodic BCs in x
+    u[1:-1,0] = un[1:-1,0] \
+        - un[1:-1,0] * dt/(2*dx) * (un[1:-1,1] - un[1:-1,-1]) \
+        - vn[1:-1,0] * dt/(2*dy) * (un[2:,0] - un[:-2,0]) \
+        + nu * (dt/dx**2 * (un[1:-1,1] - 2*un[1:-1,0] + un[1:-1,-1]) \
+               + dt/dy**2 * (un[2:,0] - 2*un[1:-1,0] + un[:-2,0])) \
+        + dt*F
+    
+    u[1:-1,-1] = un[1:-1,-1] \
+        - un[1:-1,-1] * dt/(2*dx) * (un[1:-1,0] - un[1:-1,-2]) \
+        - vn[1:-1,-1] * dt/(2*dy) * (un[2:,-1] - un[:-2,-1]) \
+        + nu * (dt/dx**2 * (un[1:-1,0] - 2*un[1:-1,-1] + un[1:-1,-2]) \
+               + dt/dy**2 * (un[2:,-1] - 2*un[1:-1,-1] + un[:-2,-1])) \
+        + dt*F
+    return u
+
+
+def update_v_star(v,un,vn,dx,dy,dt,nu):
+    # interior
+    v[1:-1,1:-1] = vn[1:-1,1:-1] \
+        - un[1:-1,1:-1] * dt/(2*dx) * (vn[1:-1,2:] - vn[1:-1,:-2]) \
+        - vn[1:-1,1:-1] * dt/(2*dy) * (vn[2:,1:-1] - vn[:-2,1:-1]) \
+        + nu * (dt/dx**2 * (vn[1:-1,2:] - 2*vn[1:-1,1:-1] + vn[1:-1,:-2]) \
+               + dt/dy**2 * (vn[2:,1:-1] - 2*vn[1:-1,1:-1] + vn[:-2,1:-1]))
+    
+    # periodic BCs in x
+    v[1:-1,0] = vn[1:-1,0] \
+        - un[1:-1,0] * dt/(2*dx) * (vn[1:-1,1] - vn[1:-1,-1]) \
+        - vn[1:-1,0] * dt/(2*dy) * (vn[2:,0] - vn[:-2,0]) \
+        + nu * (dt/dx**2 * (vn[1:-1,1] - 2*vn[1:-1,0] + vn[1:-1,-1]) \
+               + dt/dy**2 * (vn[2:,0] - 2*vn[1:-1,0] + vn[:-2,0]))
+    
+    v[1:-1,-1] = vn[1:-1,-1] \
+        - un[1:-1,-1] * dt/(2*dx) * (vn[1:-1,0] - vn[1:-1,-2]) \
+        - vn[1:-1,-1] * dt/(2*dy) * (vn[2:,-1] - vn[:-2,-1]) \
+        + nu * (dt/dx**2 * (vn[1:-1,0] - 2*vn[1:-1,-1] + vn[1:-1,-2]) \
+               + dt/dy**2 * (vn[2:,-1] - 2*vn[1:-1,-1] + vn[:-2,-1]))
+    return v
+
+def buildb_chorin(u,v,dx,dy,dt,rho):
+    b= np.zeros_like(u)
+    b[1:-1,1:-1] = rho * (1/dt * ((u[1:-1,2:] - u[1:-1,:-2])/(2*dx)
+                                + (v[2:,1:-1] - v[:-2,1:-1])/(2*dy)))
+    # periodic BCs in x
+    b[1:-1,-1] = rho * (1/dt * ((u[1:-1,0] - u[1:-1,-2])/(2*dx)
+                               + (v[2:,-1] - v[:-2,-1])/(2*dy)))
+    b[1:-1,0]  = rho * (1/dt * ((u[1:-1,1] - u[1:-1,-1])/(2*dx)
+                               + (v[2:,0] - v[:-2,0])/(2*dy)))
+    return b
+
+def channel_chorin(u, v, p, dx, dy, dt, rho, nu, epsilon):
+    un = np.empty_like(u)
+    vn = np.empty_like(v)
+
+    udiff, stepcount = 1, 0
+    while udiff > epsilon:
+        un[:] = u
+        vn[:] = v
+
+        # Step 1: intermediate velocities (with periodic BCs!)
+        u = update_u_star(u,un,vn,dx,dy,dt,nu,F)
+        v = update_v_star(v,un,vn,dx,dy,dt,nu)
+
+        # Step 2: pressure Poisson
+        b = buildb_chorin(u,v,dx,dy,dt,rho)
+        p = ppoissonperiodic(p,dx,dy,b)
+        #p, _ = ppoissonperiodicl1(p, dx, dy, b, l1norm_target)
+
+        # Step 3: projection step
+        u[1:-1,1:-1] -= dt/rho * (p[1:-1,2:] - p[1:-1,:-2])/(2*dx)
+        v[1:-1,1:-1] -= dt/rho * (p[2:,1:-1] - p[:-2,1:-1])/(2*dy)
+
+        # periodic BCs in projection
+        u[1:-1,0]  -= dt/rho * (p[1:-1,1] - p[1:-1,-1])/(2*dx)
+        u[1:-1,-1] -= dt/rho * (p[1:-1,0] - p[1:-1,-2])/(2*dx)
+        v[1:-1,0]  -= dt/rho * (p[2:,0] - p[:-2,0])/(2*dy)
+        v[1:-1,-1] -= dt/rho * (p[2:,-1] - p[:-2,-1])/(2*dy)
+
+        # wall BCs
+        u[0,:] = 0
+        u[-1,:] = 0
+        v[0,:] = 0
+        v[-1,:] = 0
+
+        udiff = (np.sum(u) - np.sum(un)) / (np.sum(u) + 1e-12)
+        stepcount += 1
+
+    return u, v, p, stepcount
+
+#u,v,p,steps = channel(u,v,p,dx,dy,dt,rho,nu,epsilon)
+#plotfield(x,y,u,v)
+#print(steps)
+
+u,v,p,steps = channel_chorin(u,v,p,dx,dy,dt,rho,nu,epsilon)
 plotfield(x,y,u,v)
 print(steps)

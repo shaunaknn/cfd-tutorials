@@ -22,6 +22,7 @@ p = np.zeros((ny,nx))
 
 epsilon = 0.001
 steps=0
+l1norm_target = 1e-6
 
 def plotfield(x,y,u,v): #plots velocity vectors
     plt.figure(figsize=(11,7),dpi=100)
@@ -74,7 +75,34 @@ def ppoissonperiodic(p,dx,dy,b):
 
     return p
 
-def channel(u,v,p,nt,dx,dy,dt,rho,nu,epsilon):
+def ppoissonperiodicl1(p,dx,dy,b,l1norm_target):
+    l1norm = 1
+    itercount = 0
+    eta = 1e-8
+    pn = np.empty_like(p)
+
+    while l1norm>l1norm_target:
+        pn[:] = p
+        p[1:-1,1:-1] = ((pn[1:-1,2:]+pn[1:-1,:-2])*dy**2 + (pn[2:,1:-1]+pn[:-2,1:-1])*dx**2)/(2*(dx**2 + dy**2))\
+                        -dx**2 * dy**2/(2*(dx**2 + dy**2)) * b[1:-1,1:-1]
+        
+        #periodic BC @ x=2
+        p[1:-1,-1] = ((pn[1:-1,0]+pn[1:-1,-2])*dy**2 + (pn[2:,-1]+pn[:-2,-1])*dx**2)/(2*(dx**2 + dy**2))\
+                        -dx**2 * dy**2/(2*(dx**2 + dy**2)) * b[1:-1,-1]
+        
+        #periodic BC @ x=0
+        p[1:-1,-1] = ((pn[1:-1,1]+pn[1:-1,1])*dy**2 + (pn[2:,0]+pn[:-2,0])*dx**2)/(2*(dx**2 + dy**2))\
+                        -dx**2 * dy**2/(2*(dx**2 + dy**2)) * b[1:-1,0]
+        
+        #top and bottom wall BCs
+        p[-1,:] = p[-2,:] #dp/dy=0 @ y=2
+        p[0,:] = p[1,:] #dp/dy=0 @ y=0
+
+        l1norm = (np.sum(np.abs(p - pn)))/np.sum(np.abs(pn)+eta)
+        itercount += 1
+    return p, itercount
+
+def channel(u,v,p,dx,dy,dt,rho,nu,epsilon):
     un = np.empty_like(u)
     vn = np.empty_like(v)
     udiff, stepcount = 1, 0
@@ -84,7 +112,8 @@ def channel(u,v,p,nt,dx,dy,dt,rho,nu,epsilon):
         vn[:] = v
         
         b = buildb(u,v,dx,dy,dt,rho)
-        p = ppoissonperiodic(p,dx,dy,b)
+        #p = ppoissonperiodic(p,dx,dy,b)
+        p, _ = ppoissonperiodicl1(p,dx,dy,b,l1norm_target)
 
         u[1:-1,1:-1] = un[1:-1,1:-1] - un[1:-1,1:-1]* dt/dx *(un[1:-1,1:-1]-un[1:-1,:-2])\
                         -vn[1:-1,1:-1]* dt/dy *(un[1:-1,1:-1]-un[:-2,1:-1])\
@@ -137,6 +166,6 @@ def channel(u,v,p,nt,dx,dy,dt,rho,nu,epsilon):
 
     return u, v, p, stepcount
 
-u,v,p,steps = channel(u,v,p,nt,dx,dy,dt,rho,nu,epsilon)
+u,v,p,steps = channel(u,v,p,dx,dy,dt,rho,nu,epsilon)
 plotfield(x,y,u,v)
 print(steps)
